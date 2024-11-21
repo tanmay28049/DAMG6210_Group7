@@ -131,63 +131,156 @@ EXEC CalculateBranchRevenue
 SELECT @TotalRevenue AS TotalRevenueForBranch;
 
 
--- 5 VIEWS
+-- 8 VIEWS
 
 -- 1. Vehicle Availability View
 GO
 CREATE VIEW VehicleAvailability AS
 SELECT 
-    v.Vehicle_ID, v.Vehicle_Brand, v.Vehicle_Model, v.Licence_Plate, 
-    CASE WHEN bk.Vehicle_ID IS NULL THEN 'Available' ELSE 'Rented' END AS Status
+    v.Vehicle_ID, 
+    v.Vehicle_Brand, 
+    v.Vehicle_Model, 
+    v.Licence_Plate, 
+    b.BranchName AS Branch, 
+    CASE 
+        WHEN bk.Vehicle_ID IS NULL THEN 'Available' 
+        ELSE 'Rented' 
+    END AS Status
 FROM Vehicle v
-LEFT JOIN Booking bk ON v.Vehicle_ID = bk.Vehicle_ID AND bk.BookingStatus = 'Confirmed';
+LEFT JOIN Booking bk 
+    ON v.Vehicle_ID = bk.Vehicle_ID AND bk.BookingStatus = 'Confirmed'
+JOIN Branch b 
+    ON v.BranchID = b.BranchID;
+GO
+
 
 -- 2. Employee Summary
 GO
 CREATE VIEW EmployeeSummary AS
 SELECT 
-    e.Employee_PersonID, p.FirstName, p.LastName, e.JobTitle, e.Department, e.Salary
+    e.Employee_PersonID, 
+    p.FirstName + ' ' + p.LastName AS EmployeeName, 
+    e.JobTitle, 
+    e.Department, 
+    FORMAT(e.Salary, 'C', 'en-US') AS FormattedSalary, 
+    b.BranchName AS Branch
 FROM Employee e
-JOIN Person p ON e.Employee_PersonID = p.PersonID;
+JOIN Person p 
+    ON e.Employee_PersonID = p.PersonID
+JOIN Branch b 
+    ON e.BranchID = b.BranchID;
+GO
+
 
 -- 3. Maintenance Overview
 GO
 CREATE VIEW MaintenanceOverview AS
 SELECT 
-    m.Maintenance_ID, m.Maintenance_Type, v.Vehicle_Brand, v.Vehicle_Model, m.Maintenance_Date, m.Status
+    m.Maintenance_ID, 
+    m.Maintenance_Type, 
+    v.Vehicle_Brand, 
+    v.Vehicle_Model, 
+    v.Licence_Plate, 
+    m.Maintenance_Date, 
+    m.Cost AS MaintenanceCost, 
+    m.Status
 FROM Maintenance m
-JOIN Vehicle v ON m.Vehicle_ID = v.Vehicle_ID;
+JOIN Vehicle v 
+    ON m.Vehicle_ID = v.Vehicle_ID;
+GO
+
 
 -- 4. Customer Feedback View
 GO
 CREATE VIEW CustomerFeedback AS
 SELECT 
     p.FirstName + ' ' + p.LastName AS CustomerName, 
+    b.BranchName AS Branch, 
     f.Rating, 
-    f.Comments
+    f.Comments, 
+    bk.BookingDate
 FROM Feedback f
-JOIN Customer c ON f.CustomerID = c.Customer_PersonID
-JOIN Person p ON c.Customer_PersonID = p.PersonID;
+JOIN Booking bk 
+    ON f.BookingID = bk.BookingID
+JOIN Customer c 
+    ON f.CustomerID = c.Customer_PersonID
+JOIN Person p 
+    ON c.Customer_PersonID = p.PersonID
+JOIN Vehicle v 
+    ON bk.Vehicle_ID = v.Vehicle_ID
+JOIN Branch b 
+    ON v.BranchID = b.BranchID;
+GO
+
 
 
 -- 5. Revenue by Branch
 GO
 CREATE VIEW RevenueByBranch AS
 SELECT 
-    b.BranchName, SUM(bk.TotalAmount) AS TotalRevenue
+    b.BranchName, 
+    COUNT(bk.BookingID) AS TotalBookings, 
+    SUM(bk.TotalAmount) AS TotalRevenue, 
+    AVG(bk.TotalAmount) AS AverageRevenuePerBooking
 FROM Branch b
-JOIN Vehicle v ON b.BranchID = v.BranchID
-JOIN Booking bk ON v.Vehicle_ID = bk.Vehicle_ID
+JOIN Vehicle v 
+    ON b.BranchID = v.BranchID
+JOIN Booking bk 
+    ON v.Vehicle_ID = bk.Vehicle_ID
+WHERE bk.BookingStatus = 'Completed'
 GROUP BY b.BranchName;
+GO
 
+-- 6 TopCustomersByRevenue
+CREATE VIEW TopCustomersByRevenue AS
+SELECT 
+    p.FirstName + ' ' + p.LastName AS CustomerName, 
+    COUNT(bk.BookingID) AS TotalBookings, 
+    SUM(bk.TotalAmount) AS TotalRevenue
+FROM Customer c
+JOIN Person p 
+    ON c.Customer_PersonID = p.PersonID
+JOIN Booking bk 
+    ON c.Customer_PersonID = bk.CustomerID
+GROUP BY p.FirstName, p.LastName
+GO
+
+-- 7 MaintenanceCostsByVehicle
+CREATE VIEW MaintenanceCostsByVehicle AS
+SELECT 
+    v.Vehicle_Brand, 
+    v.Vehicle_Model, 
+    v.Licence_Plate, 
+    SUM(m.Cost) AS TotalMaintenanceCost, 
+    COUNT(m.Maintenance_ID) AS TotalMaintenanceTasks
+FROM Maintenance m
+JOIN Vehicle v 
+    ON m.Vehicle_ID = v.Vehicle_ID
+GROUP BY v.Vehicle_Brand, v.Vehicle_Model, v.Licence_Plate
+GO
+
+-- 8 BookingTrends
+CREATE VIEW BookingTrends AS
+SELECT 
+    YEAR(BookingDate) AS Year, 
+    MONTH(BookingDate) AS Month, 
+    COUNT(*) AS TotalBookings, 
+    SUM(TotalAmount) AS TotalRevenue
+FROM Booking
+WHERE BookingStatus = 'Completed'
+GROUP BY YEAR(BookingDate), MONTH(BookingDate)
+GO
 
 -- Using Views
 GO
-SELECT * FROM VehicleAvailability;
+SELECT * FROM VehicleAvailability ORDER BY Status;
 SELECT * FROM EmployeeSummary;
-SELECT * FROM MaintenanceOverview;
-SELECT * FROM CustomerFeedback;
-SELECT * FROM RevenueByBranch;
+SELECT * FROM MaintenanceOverview ORDER BY Maintenance_Date DESC;;
+SELECT * FROM CustomerFeedback ORDER BY Rating DESC;
+SELECT * FROM RevenueByBranch ORDER BY TotalRevenue DESC;
+SELECT * FROM TopCustomersByRevenue ORDER BY TotalRevenue DESC;
+SELECT * FROM MaintenanceCostsByVehicle ORDER BY TotalMaintenanceCost DESC;
+SELECT * FROM BookingTrends ORDER BY Year, Month;
 
 SELECT 
     TABLE_NAME AS ViewName
