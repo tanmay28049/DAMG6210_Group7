@@ -18,7 +18,7 @@ CREATE NONCLUSTERED INDEX idx_Customer_License ON Customer (DriverLicenseNumber)
 --1
 SELECT *
 FROM Booking
-WHERE BookingDate BETWEEN '2024-01-01' AND '2024-01-31';
+WHERE BookingDate BETWEEN '2023-01-01' AND '2023-03-11';
 
 SELECT BookingID, BookingDate, TotalAmount
 FROM Booking
@@ -31,7 +31,7 @@ WHERE Vehicle_Brand = 'Toyota';
 
 SELECT Vehicle_ID, Vehicle_Brand, Vehicle_Model
 FROM Vehicle
-WHERE Vehicle_Brand = 'Ford' AND Year_of_Manufacturing >= 2020;
+WHERE Vehicle_Brand = 'Ford' AND Year_of_Manufacturing >= 2017;
 
 --3
 SELECT Maintenance_ID, Maintenance_Type, Cost, Status
