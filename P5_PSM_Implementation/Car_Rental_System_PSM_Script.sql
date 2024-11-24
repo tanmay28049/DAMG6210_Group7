@@ -373,9 +373,14 @@ SELECT dbo.GetTotalMaintenanceCost(2) AS TotalMaintenanceCost;
 SELECT dbo.GetAverageFeedbackRating() AS AverageFeedbackRating;
 
 
-
 -- 3 TRIGGERS
 --1
+CREATE TABLE BookingLog (
+    LogID INT PRIMARY KEY IDENTITY(1,1),
+    BookingID INT,
+    LogDate DATETIME DEFAULT GETDATE(),
+    Action NVARCHAR(100),
+);
 GO
 CREATE TRIGGER trg_LogBookingStatusChange
 ON Booking
@@ -389,8 +394,22 @@ BEGIN
     JOIN Deleted d ON i.BookingID = d.BookingID
     WHERE i.BookingStatus <> d.BookingStatus; -- Check if status has changed
 END;
-
+ 
+UPDATE Booking
+SET BookingStatus = 'Completed'
+WHERE BookingID = 1;
+ 
+SELECT * FROM BookingLog;
+ 
 --2
+CREATE TABLE VehicleIssueLog (
+    LogID INT PRIMARY KEY IDENTITY(1,1),
+    VehicleID INT,
+    BookingID INT,
+    IssueReported NVARCHAR(100),
+    LogDate DATETIME DEFAULT GETDATE()
+);
+ 
 GO
 CREATE TRIGGER trg_RecordVehicleIssue
 ON Booking
@@ -403,8 +422,24 @@ BEGIN
     FROM Inserted i
     WHERE i.BookingStatus IN ('Completed', 'Cancelled');
 END;
-
+ 
+UPDATE Booking
+SET BookingStatus = 'Completed'
+WHERE BookingID = 1;
+ 
+SELECT * FROM VehicleIssueLog;
+ 
+ 
 --3
+CREATE TABLE DoubleBookingLog (
+    LogID INT PRIMARY KEY IDENTITY(1,1),
+    VehicleID INT,
+    AttemptedBookingID INT,
+    ConflictingBookingID INT,
+    LogDate DATETIME DEFAULT GETDATE(),
+    LoggedBy NVARCHAR(100)
+);
+ 
 GO
 CREATE TRIGGER trg_NotifyDoubleBookingAttempt
 ON Booking
@@ -418,62 +453,9 @@ BEGIN
     JOIN Booking b ON i.Vehicle_ID = b.Vehicle_ID
     WHERE i.StartDate < b.EndDate AND i.EndDate > b.StartDate;
 END;
-
-
--- Using Triggers
---1 
-CREATE TABLE BookingLog (
-    LogID INT PRIMARY KEY IDENTITY(1,1),
-    BookingID INT,
-    LogDate DATETIME DEFAULT GETDATE(),
-    Action NVARCHAR(100),
-);
-
-UPDATE Booking
-SET BookingStatus = 'Completed'
-WHERE BookingID = 1;
-
-SELECT * FROM BookingLog;
-
---2 
-CREATE TABLE VehicleIssueLog (
-    LogID INT PRIMARY KEY IDENTITY(1,1),
-    VehicleID INT,
-    BookingID INT,
-    IssueReported NVARCHAR(100),
-    LogDate DATETIME DEFAULT GETDATE()
-);
-
-UPDATE Booking
-SET BookingStatus = 'Completed'
-WHERE BookingID = 1;
-
-SELECT * FROM VehicleIssueLog;
-
---3
-CREATE TABLE DoubleBookingLog (
-    LogID INT PRIMARY KEY IDENTITY(1,1),
-    VehicleID INT,
-    AttemptedBookingID INT,
-    ConflictingBookingID INT,
-    LogDate DATETIME DEFAULT GETDATE(),
-    LoggedBy NVARCHAR(100)
-);
-
+ 
 INSERT INTO Booking (BookingDate, StartDate, EndDate, TotalAmount, BookingStatus, EmployeeID, CustomerID, Vehicle_ID, Insurance_ID)
 VALUES ('2024-01-10', '2024-01-20', '2024-01-25', 700.00, 'Confirmed', 5, 2, 8, 4);
 
+
 SELECT * FROM DoubleBookingLog;
-
-
-
-
-
-
-
-
-
-
-
-
-
