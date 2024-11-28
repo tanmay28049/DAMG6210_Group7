@@ -36,7 +36,7 @@ WHERE Vehicle_Brand = 'Ford' AND Year_of_Manufacturing >= 2017;
 --3
 SELECT Maintenance_ID, Maintenance_Type, Cost, Status
 FROM Maintenance
-WHERE Maintenance_Date BETWEEN '2024-01-01' AND '2024-12-31';
+WHERE Maintenance_Date BETWEEN '2023-01-01' AND '2024-12-31';
 
 SELECT TOP 10 Maintenance_ID, Vehicle_ID, Maintenance_Date
 FROM Maintenance
@@ -59,6 +59,3 @@ WHERE DriverLicenseNumber = 'D1234567';
 SELECT DriverLicenseNumber
 FROM Customer
 WHERE DriverLicenseNumber LIKE 'D%';
-
-
-

@@ -1,4 +1,4 @@
--- 5 STORED PROCEDURES
+-- 4 STORED PROCEDURES
 
 -- 1. Get Branch Details by City
 CREATE PROCEDURE GetBranchDetailsByCity
@@ -6,87 +6,125 @@ CREATE PROCEDURE GetBranchDetailsByCity
     @TotalBranches INT OUTPUT
 AS
 BEGIN
-    SELECT BranchID, BranchName, PhoneNumber, Email
-    FROM Branch b
-    JOIN Address a ON b.AddressID = a.AddressID
-    WHERE a.City = @City;
+    BEGIN TRY
+        BEGIN TRANSACTION;
 
-    SELECT @TotalBranches = COUNT(*)
-    FROM Branch b
-    JOIN Address a ON b.AddressID = a.AddressID
-    WHERE a.City = @City;
+        SELECT BranchID, BranchName, PhoneNumber, Email
+        FROM Branch b
+        JOIN Address a ON b.AddressID = a.AddressID
+        WHERE a.City = @City;
+
+        SELECT @TotalBranches = COUNT(*)
+        FROM Branch b
+        JOIN Address a ON b.AddressID = a.AddressID
+        WHERE a.City = @City;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrorState INT = ERROR_STATE();
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState);
+    END CATCH;
 END;
 GO
 
--- 2. Add a New Customer
-CREATE PROCEDURE AddCustomer
-    @FirstName VARCHAR(50),
-    @LastName VARCHAR(50),
-    @DOB DATE,
-    @Gender CHAR(1),
-    @Phone VARCHAR(15),
-    @Email VARCHAR(100),
-    @AddressID INT,
-    @LicenseExpiryDate DATE,
-    @DriverLicenseNumber VARCHAR(20)
-AS
-BEGIN
-    DECLARE @PersonID INT;
-
-    INSERT INTO Person (Person_Type, FirstName, LastName, DateOfBirth, Gender, PhoneNumber, Email, AddressID)
-    VALUES ('CUS', @FirstName, @LastName, @DOB, @Gender, @Phone, @Email, @AddressID);
-
-    SET @PersonID = SCOPE_IDENTITY();
-
-    INSERT INTO Customer (Customer_PersonID, LicenseExpiryDate, DriverLicenseNumber)
-    VALUES (@PersonID, @LicenseExpiryDate, @DriverLicenseNumber);
-END;
-GO
-
--- 3. Get Booking Summary
+-- 2. Get Booking Summary
 CREATE PROCEDURE GetBookingSummary
     @StartDate DATE,
     @EndDate DATE
 AS
 BEGIN
-    SELECT 
-        b.BookingID, 
-        b.BookingDate, 
-        p.FirstName + ' ' + p.LastName AS CustomerName, 
-        v.Vehicle_Model, 
-        b.TotalAmount
-    FROM Booking b
-    JOIN Customer c ON b.CustomerID = c.Customer_PersonID
-    JOIN Person p ON c.Customer_PersonID = p.PersonID
-    JOIN Vehicle v ON b.Vehicle_ID = v.Vehicle_ID
-    WHERE b.BookingDate BETWEEN @StartDate AND @EndDate;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        SELECT 
+            b.BookingID, 
+            b.BookingDate, 
+            p.FirstName + ' ' + p.LastName AS CustomerName, 
+            v.Vehicle_Model, 
+            b.TotalAmount
+        FROM Booking b
+        JOIN Customer c ON b.CustomerID = c.Customer_PersonID
+        JOIN Person p ON c.Customer_PersonID = p.PersonID
+        JOIN Vehicle v ON b.Vehicle_ID = v.Vehicle_ID
+        WHERE b.BookingDate BETWEEN @StartDate AND @EndDate;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrorState INT = ERROR_STATE();
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState);
+    END CATCH;
 END;
 GO
 
--- 4. Update Vehicle Maintenance Status
+
+-- 3. Update Vehicle Maintenance Status
 CREATE PROCEDURE UpdateMaintenanceStatus
     @MaintenanceID INT,
     @NewStatus VARCHAR(50)
 AS
 BEGIN
-    UPDATE Maintenance
-    SET Status = @NewStatus
-    WHERE Maintenance_ID = @MaintenanceID;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        UPDATE Maintenance
+        SET Status = @NewStatus
+        WHERE Maintenance_ID = @MaintenanceID;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrorState INT = ERROR_STATE();
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState);
+    END CATCH;
 END;
 GO
 
--- 5. Calculate Total Revenue for a Branch
+
+-- 4. Calculate Total Revenue for a Branch
 CREATE PROCEDURE CalculateBranchRevenue
     @BranchID INT,
-    @TotalRevenue DECIMAL(10,2) OUTPUT
+    @TotalRevenue DECIMAL(10, 2) OUTPUT
 AS
 BEGIN
-    SELECT @TotalRevenue = SUM(b.TotalAmount)
-    FROM Booking b
-    JOIN Vehicle v ON b.Vehicle_ID = v.Vehicle_ID
-    WHERE v.BranchID = @BranchID;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        SELECT @TotalRevenue = SUM(b.TotalAmount)
+        FROM Booking b
+        JOIN Vehicle v ON b.Vehicle_ID = v.Vehicle_ID
+        WHERE v.BranchID = @BranchID;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrorState INT = ERROR_STATE();
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState);
+    END CATCH;
 END;
 GO
+
 
 
 -- Executing Stored Procedures
@@ -100,28 +138,16 @@ EXEC GetBranchDetailsByCity
 SELECT @TotalBranches AS TotalBranchesInCity;
 
 --2
-EXEC AddCustomer
-    @FirstName = 'Alice',
-    @LastName = 'Johnson',
-    @DOB = '1995-05-15',
-    @Gender = 'F',
-    @Phone = '555-1234',
-    @Email = 'alice.johnson@gmail.com',
-    @AddressID = 1,
-    @LicenseExpiryDate = '2025-12-31',
-    @DriverLicenseNumber = 'A9876543';
-
---3
 EXEC GetBookingSummary 
     @StartDate = '2023-01-01',
     @EndDate = '2023-12-31';
 
---4
+--3
 EXEC UpdateMaintenanceStatus
     @MaintenanceID = 3,
     @NewStatus = 'Completed';
 
---5
+--4
 DECLARE @TotalRevenue DECIMAL(10, 2);
 
 EXEC CalculateBranchRevenue 
@@ -153,26 +179,7 @@ JOIN Branch b
     ON v.BranchID = b.BranchID;
 GO
 
-
--- 2. Employee Summary
-GO
-CREATE VIEW EmployeeSummary AS
-SELECT 
-    e.Employee_PersonID, 
-    p.FirstName + ' ' + p.LastName AS EmployeeName, 
-    e.JobTitle, 
-    e.Department, 
-    FORMAT(e.Salary, 'C', 'en-US') AS FormattedSalary, 
-    b.BranchName AS Branch
-FROM Employee e
-JOIN Person p 
-    ON e.Employee_PersonID = p.PersonID
-JOIN Branch b 
-    ON e.BranchID = b.BranchID;
-GO
-
-
--- 3. Maintenance Overview
+-- 2. Maintenance Overview
 GO
 CREATE VIEW MaintenanceOverview AS
 SELECT 
@@ -190,7 +197,7 @@ JOIN Vehicle v
 GO
 
 
--- 4. Customer Feedback View
+-- 3. Customer Feedback View
 GO
 CREATE VIEW CustomerFeedback AS
 SELECT 
@@ -214,7 +221,7 @@ GO
 
 
 
--- 5. Revenue by Branch
+-- 4. Revenue by Branch
 GO
 CREATE VIEW RevenueByBranch AS
 SELECT 
@@ -231,7 +238,7 @@ WHERE bk.BookingStatus = 'Completed'
 GROUP BY b.BranchName;
 GO
 
--- 6 TopCustomersByRevenue
+-- 5 TopCustomersByRevenue
 CREATE VIEW TopCustomersByRevenue AS
 SELECT 
     p.FirstName + ' ' + p.LastName AS CustomerName, 
@@ -245,7 +252,7 @@ JOIN Booking bk
 GROUP BY p.FirstName, p.LastName
 GO
 
--- 7 MaintenanceCostsByVehicle
+-- 6 MaintenanceCostsByVehicle
 CREATE VIEW MaintenanceCostsByVehicle AS
 SELECT 
     v.Vehicle_Brand, 
@@ -259,7 +266,7 @@ JOIN Vehicle v
 GROUP BY v.Vehicle_Brand, v.Vehicle_Model, v.Licence_Plate
 GO
 
--- 8 BookingTrends
+-- 7 BookingTrends
 CREATE VIEW BookingTrends AS
 SELECT 
     YEAR(BookingDate) AS Year, 
@@ -274,7 +281,6 @@ GO
 -- Using Views
 GO
 SELECT * FROM VehicleAvailability ORDER BY Status;
-SELECT * FROM EmployeeSummary;
 SELECT * FROM MaintenanceOverview ORDER BY Maintenance_Date DESC;;
 SELECT * FROM CustomerFeedback ORDER BY Rating DESC;
 SELECT * FROM RevenueByBranch ORDER BY TotalRevenue DESC;
@@ -282,6 +288,7 @@ SELECT * FROM TopCustomersByRevenue ORDER BY TotalRevenue DESC;
 SELECT * FROM MaintenanceCostsByVehicle ORDER BY TotalMaintenanceCost DESC;
 SELECT * FROM BookingTrends ORDER BY Year, Month;
 
+/*Query to display all the Views*/
 SELECT 
     TABLE_NAME AS ViewName
 FROM INFORMATION_SCHEMA.VIEWS;
